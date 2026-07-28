@@ -29,3 +29,7 @@ Key Upgrades & Features
  Onboard Telemetry & Feedback:
 
   • Features a live digital speedometer, a visual PWM motor bar, and a buzzer for instant audio alerts whenever an edge is detected.
+
+How to use: 
+
+To use it first you need to connect the custom 2S battery pack to the battery connectors and then switch on the master power switch. After you switch it on you will instantly be in automatic mode. To change the you just press the red button and it cycles between the modes. If you want to control it with your phone you press the red button until you reach diagnostics mode where you can see if your phone has connected to the esp32 and to connect you open you wifi settings, choose "Robot-Control", write the pasword 12345678 and connect and then you wait for your phone to connect. When you connect to the esp32 you open google or any search engine and write 192.168.4.1 where it opens you the controller page where you have up, down, left, right and stop and then you just press the red button on the car until you are in manual + help or suicide mode and you are ready to control it. It has 10m of range which is plenty for most people.
