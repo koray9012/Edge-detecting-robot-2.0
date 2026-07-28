@@ -33,3 +33,37 @@ Key Upgrades & Features
 How to use: 
 
 To use it first you need to connect the custom 2S battery pack to the battery connectors and then switch on the master power switch. After you switch it on you will instantly be in automatic mode. To change the you just press the red button and it cycles between the modes. If you want to control it with your phone you press the red button until you reach diagnostics mode where you can see if your phone has connected to the esp32 and to connect you open you wifi settings, choose "Robot-Control", write the pasword 12345678 and connect and then you wait for your phone to connect. When you connect to the esp32 you open google or any search engine and write 192.168.4.1 where it opens you the controller page where you have up, down, left, right and stop and then you just press the red button on the car until you are in manual + help or suicide mode and you are ready to control it. It has 10m of range which is plenty for most people.
+
+Here is so clean instructions on how to do it step by step:
+
+Operating Instructions
+1. Power On
+  1.Connect your custom 2S battery pack to the battery connectors.
+
+  2.Flip the master power switch to turn on the robot.
+
+  3.The robot defaults to Autonomous Mode on startup.
+
+2. Mode Selection
+  1.Press the red button to cycle through the 4 operational modes:
+
+   • Autonomous Mode (Default)
+
+   • Manual + Safety Mode
+
+   • Suicide Mode
+
+   • Diagnostics Mode
+
+3. Connecting Your Phone (Wi-Fi Control)
+  1.Cycle the red button until you enter Diagnostics Mode.
+
+  2.On your phone, open Wi-Fi settings and connect to Robot-Control (Password: 12345678).
+
+  3.Check the robot's OLED screen in Diagnostics Mode to confirm your phone connected (it will say CONNECTED).
+
+  4.Open your phone's browser and go to 192.168.4.1 to load the control interface.
+
+  5.Cycle the red button on the robot to Manual + Safety or Suicide Mode.
+
+  6.Drive using the touch directional pad! (Effective Wi-Fi range is ~10 meters).
