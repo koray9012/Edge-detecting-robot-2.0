@@ -72,6 +72,8 @@ Operating Instructions
 
 After building the first version, I realized that ultrasonic sensors on a fast-moving robot were kind of a mess for precision edge detection—they were too slow, had weird wide beam angles, and sometimes missed the table edge completely. Plus, only having autonomous mode got boring fast.
 
-I wanted to take everything I learned from 1.0 and turn it into a legitimate, multi-mode rover. For 2.0, I ditched ultrasonic for twin Time-of-Flight laser sensors so it could measure distances instantly with millimeter accuracy. I also wanted complete control over the robot, so I built a custom ESP32 Wi-Fi web server that lets me drive it straight from my phone with real-time safety overrides, added an OLED dashboard with a live speedometer, and threw in "Suicide Mode" for when I just want raw, unrestricted driving.
+I wanted to take everything I learned from 1.0 and turn it into a legitimate, multi-mode rover. For 2.0, I ditched ultrasonic for twin Time-of-Flight laser sensors so it could measure distances instantly with millimeter accuracy. I also wanted complete control over the robot, so I built a custom ESP32 Wi-Fi web server that lets me drive it straight from my phone with real-time safety overrides, added an OLED dashboard with a live speedometer, and threw in "Suicide Mode" for when I just want raw, unrestricted driving. I hated needing 2 9V batteries bc they arent the cheapest and also are not very efficient and constantly need to be replaced so i decided to study a little more and make my first 2 cell 18650 battery pack which with its 2 3400mah 18650 batteries for 7.4V surpass the 9V in every way.
 
-It started as a simple cliff-avoidance test, but turned into a full-on crash course in I2C multiplexing, web socket latency tuning, C++ state machines, and custom hardware integration.
+It started as a simple cliff-avoidance test, but turned into a full-on crash course in I2C multiplexing, web socket latency tuning, C++ state machines, and custom hardware integration and i plan to upgrade it constantly and one day to make it absolutely perfect.
+
+Wiring:
