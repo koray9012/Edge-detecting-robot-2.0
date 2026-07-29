@@ -97,3 +97,6 @@ Below is the visual schematic diagram for Edge Detector 2.0.
 | **GPIO 22** | OLED + Both Lasers | Shared I2C SCL |
 | **GPIO 4** | Mode Pushbutton | Button Pin (other pin to GND) |
 | **GPIO 19** | Active Buzzer | Buzzer (+) Positive (other pin GND) |
+| **5V** | L298N Motor Driver| 5V screw for esp32 power |
+| **Battery +** | power switch -> L298N Motor Driver | 12V screw for motor power |
+| **Battery -** | Shared GND of all devices | Shared GND cable |
