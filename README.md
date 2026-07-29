@@ -107,5 +107,5 @@ Below is the visual schematic diagram for Edge Detector 2.0.
 
 ## Code:
 
-The code can be found in repo:
+The code can be found in repo: Edge Detecting Robot 2.0 Code
 
