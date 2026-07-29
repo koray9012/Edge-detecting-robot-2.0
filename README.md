@@ -80,7 +80,7 @@ It started as a simple cliff-avoidance test, but turned into a full-on crash cou
 
 Below is the visual schematic diagram for Edge Detector 2.0.
 
-![image]([Екранна снимка 2026-07-29 005514.png](https://github.com/koray9012/Edge-detecting-robot-2.0/blob/main/%D0%95%D0%BA%D1%80%D0%B0%D0%BD%D0%BD%D0%B0%20%D1%81%D0%BD%D0%B8%D0%BC%D0%BA%D0%B0%202026-07-29%20005514.png?raw=true))
+![image](https://github.com/koray9012/Edge-detecting-robot-2.0/blob/main/%D0%95%D0%BA%D1%80%D0%B0%D0%BD%D0%BD%D0%B0%20%D1%81%D0%BD%D0%B8%D0%BC%D0%BA%D0%B0%202026-07-29%20005514.png?raw=true))
 
 ### Pinout Breakdown:
 
