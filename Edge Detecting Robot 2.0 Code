@@ -1,0 +1,475 @@
+#include <WiFi.h>
+#include <WebServer.h>
+#include <Wire.h>
+#include <Adafruit_VL53L0X.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+
+// ==========================================
+//  WI-FI ACCESS POINT CREDENTIALS
+// ==========================================
+const char* AP_SSID = "Robot-Control";
+const char* AP_PASS = "12345678"; 
+
+WebServer server(80);
+
+// --- MOTOR DIRECTION FIX ---
+#define INVERT_LEFT_MOTOR   false   
+#define INVERT_RIGHT_MOTOR  false   
+
+// --- PIN DEFINITIONS ---
+#define PIN_ENA      14
+#define PIN_IN1      27
+#define PIN_IN2      26
+#define PIN_IN3      25
+#define PIN_IN4      33 
+
+#define XSHUT_LEFT   17  
+#define XSHUT_RIGHT  18  
+
+#define BUTTON_PIN   4
+#define BUZZER_PIN   19
+
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 64
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
+
+// --- THRESHOLDS & SPEEDS ---
+#define THRESHOLD_LEFT_MM  220 
+#define THRESHOLD_RIGHT_MM 160 
+
+// 1. ORIGINAL AUTONOMOUS SPEEDS
+#define AUTO_FWD_SPEED    170  
+#define AUTO_BACK_SPEED   180  
+#define AUTO_TURN_SPEED   240  
+
+// 2. MANUAL PHONE SPEEDS
+#define MANUAL_FWD_SPEED  190  
+#define MANUAL_BACK_SPEED 200  
+#define MANUAL_TURN_SPEED 255  
+
+#define MAX_KMH           1.8 
+
+#define STOP_TIME         1500  
+#define BACKWARD_TIME     600  
+#define TURN_TIME         800  
+
+// --- OBJECTS & GLOBALS ---
+Adafruit_VL53L0X lox_left = Adafruit_VL53L0X();
+Adafruit_VL53L0X lox_right = Adafruit_VL53L0X();
+
+bool leftSensorOK = false;
+bool rightSensorOK = false;
+bool screenOK = false;
+
+int distLeft = 0;
+int distRight = 0;
+int currentPWM = 0; 
+
+int currentMode = 0; // 0: Auto, 1: Manual+Safety, 2: Suicide, 3: Diagnostics
+unsigned long lastBtnPress = 0;
+String currentManualCmd = "STOP"; 
+
+enum DangerState { IDLE, STOP1, BACKWARD, STOP2, TURN, STOP3 };
+DangerState dangerState = IDLE;
+unsigned long stateStartTime = 0;
+bool dangerLeftDetected = false;
+bool dangerRightDetected = false;
+
+// --- CLEAN TOUCH HOLD WEB PAGE ---
+const char HTML_PAGE[] PROGMEM = R"rawliteral(
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Robot Control</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; background: #121212; color: white; margin: 0; padding: 20px; user-select: none; touch-action: none; }
+        h1 { margin-bottom: 20px; font-size: 24px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; max-width: 300px; margin: 0 auto; }
+        button { background: #1e88e5; color: white; border: none; padding: 30px 0; font-size: 28px; border-radius: 12px; touch-action: none; -webkit-touch-callout: none; }
+        button:active { background: #1565c0; }
+        .stop { background: #e53935; font-size: 22px; }
+        .empty { visibility: hidden; }
+    </style>
+</head>
+<body>
+    <h1>Robot Controller</h1>
+    <div class="grid">
+        <div class="empty"></div>
+        <button onpointerdown="send('FORWARD')" onpointerup="send('STOP')" onpointercancel="send('STOP')" onpointerleave="send('STOP')">&#9650;</button>
+        <div class="empty"></div>
+        <button onpointerdown="send('LEFT')" onpointerup="send('STOP')" onpointercancel="send('STOP')" onpointerleave="send('STOP')">&#9664;</button>
+        <button class="stop" onclick="send('STOP')">&#9632;</button>
+        <button onpointerdown="send('RIGHT')" onpointerup="send('STOP')" onpointercancel="send('STOP')" onpointerleave="send('STOP')">&#9654;</button>
+        <div class="empty"></div>
+        <button onpointerdown="send('BACK')" onpointerup="send('STOP')" onpointercancel="send('STOP')" onpointerleave="send('STOP')">&#9660;</button>
+        <div class="empty"></div>
+    </div>
+    <script>
+        function send(cmd) {
+            var xhttp = new XMLHttpRequest();
+            xhttp.open("GET", "/cmd?dir=" + cmd, true);
+            xhttp.send();
+        }
+    </script>
+</body>
+</html>
+)rawliteral";
+
+// --- MOTOR FUNCTIONS ---
+void setupMotors() {
+  pinMode(PIN_IN1, OUTPUT);
+  pinMode(PIN_IN2, OUTPUT);
+  pinMode(PIN_IN3, OUTPUT);
+  pinMode(PIN_IN4, OUTPUT);
+  ledcAttach(PIN_ENA, 5000, 8); 
+}
+
+void stopMotors() {
+  currentPWM = 0;
+  ledcWrite(PIN_ENA, 0);
+  digitalWrite(PIN_IN1, LOW); digitalWrite(PIN_IN2, LOW);
+  digitalWrite(PIN_IN3, LOW); digitalWrite(PIN_IN4, LOW);
+}
+
+void setLeftMotor(bool fwd) {
+  if (INVERT_LEFT_MOTOR) fwd = !fwd;
+  digitalWrite(PIN_IN1, fwd ? HIGH : LOW);
+  digitalWrite(PIN_IN2, fwd ? LOW : HIGH);
+}
+
+void setRightMotor(bool fwd) {
+  if (INVERT_RIGHT_MOTOR) fwd = !fwd;
+  digitalWrite(PIN_IN3, fwd ? HIGH : LOW);
+  digitalWrite(PIN_IN4, fwd ? LOW : HIGH);
+}
+
+void forward(int spd) {
+  currentPWM = spd;
+  ledcWrite(PIN_ENA, spd);
+  setLeftMotor(true);
+  setRightMotor(true);
+}
+
+void backward(int spd) {
+  currentPWM = spd;
+  ledcWrite(PIN_ENA, spd);
+  setLeftMotor(false);
+  setRightMotor(false);
+}
+
+void turnLeftTank(int spd) {
+  currentPWM = spd;
+  ledcWrite(PIN_ENA, spd);
+  digitalWrite(PIN_IN1, LOW); digitalWrite(PIN_IN2, LOW);
+  setRightMotor(true);                                    
+}
+
+void turnRightTank(int spd) {
+  currentPWM = spd;
+  ledcWrite(PIN_ENA, spd);
+  setLeftMotor(true);                                     
+  digitalWrite(PIN_IN3, LOW); digitalWrite(PIN_IN4, LOW); 
+}
+
+// --- AUDIO HELPERS ---
+void setupBuzzer() {
+  ledcAttach(BUZZER_PIN, 2000, 8); 
+}
+
+void playBeep(int freq, int duration) {
+  ledcWriteTone(BUZZER_PIN, freq);
+  delay(duration);
+  ledcWriteTone(BUZZER_PIN, 0);
+}
+
+void muteBuzzer() {
+  ledcWriteTone(BUZZER_PIN, 0);
+}
+
+// --- UI FUNCTIONS ---
+void drawSpeedometerUI(String modeTitle) {
+  if (!screenOK) return;
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setTextColor(SSD1306_WHITE);
+  display.setCursor(0, 0);
+  display.print(modeTitle);
+  
+  float currentKmh = (currentPWM / 255.0) * MAX_KMH;
+  
+  display.setTextSize(2);
+  display.setCursor(0, 16);
+  display.print(currentKmh, 1);
+  display.setTextSize(1);
+  display.print(" km/h");
+
+  int barWidth = map(currentPWM, 0, 255, 0, 124);
+  display.drawRect(0, 42, 128, 12, SSD1306_WHITE);
+  display.fillRect(2, 44, barWidth, 8, SSD1306_WHITE);
+
+  display.display();
+}
+
+void drawDiagnosticsUI() {
+  if (!screenOK) return;
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setTextColor(SSD1306_WHITE);
+  
+  display.setCursor(0, 0);
+  display.println("--- DIAGNOSTICS ---");
+
+  display.setCursor(0, 14);
+  display.print("L Laser: "); 
+  if (leftSensorOK) { display.print(distLeft); display.println(" mm"); }
+  else { display.println("ERR"); }
+
+  display.setCursor(0, 26);
+  display.print("R Laser: "); 
+  if (rightSensorOK) { display.print(distRight); display.println(" mm"); }
+  else { display.println("ERR"); }
+
+  display.setCursor(0, 38);
+  display.print("WiFi AP: ");
+  display.println(WiFi.softAPgetStationNum() > 0 ? "CONNECTED" : "WAITING");
+
+  display.display();
+}
+
+// --- SENSOR READING HELPERS ---
+int readLeftSingle() {
+  if (!leftSensorOK) return 0;
+  VL53L0X_RangingMeasurementData_t measure;
+  lox_left.rangingTest(&measure, false);
+  return (measure.RangeStatus != 4) ? measure.RangeMilliMeter : 0;
+}
+
+int readRightSingle() {
+  if (!rightSensorOK) return 0;
+  VL53L0X_RangingMeasurementData_t measure;
+  lox_right.rangingTest(&measure, false);
+  return (measure.RangeStatus != 4) ? measure.RangeMilliMeter : 0;
+}
+
+void runAutonomousSequence(bool dangerL, bool dangerR, unsigned long now);
+
+// --- WEB SERVER HANDLERS ---
+void handleRoot() {
+  server.send(200, "text/html", HTML_PAGE);
+}
+
+void handleCommand() {
+  if (currentMode == 0 || currentMode == 3) {
+    server.send(200, "text/plain", "Ignored");
+    return;
+  }
+
+  if (currentMode == 1 && dangerState != IDLE) {
+    server.send(200, "text/plain", "Safety Active");
+    return;
+  }
+
+  if (server.hasArg("dir")) {
+    currentManualCmd = server.arg("dir"); 
+  }
+  server.send(200, "text/plain", "OK");
+}
+
+// --- SETUP ---
+void setup() {
+  Serial.begin(115200);
+  delay(500);
+  Serial.println("\n>>> ESP32 BOOTING <<<");
+
+  setupMotors();
+  stopMotors();
+
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
+  setupBuzzer();
+
+  Wire.begin(21, 22);
+  Wire.setTimeOut(50); 
+
+  if (display.begin(SSD1306_SWITCHCAPVCC, 0x3C) || display.begin(SSD1306_SWITCHCAPVCC, 0x3D)) {
+    screenOK = true;
+    Serial.println("OLED Display Initialized!");
+    display.clearDisplay();
+    display.setTextSize(1);
+    display.setTextColor(SSD1306_WHITE);
+    display.setCursor(0, 10);
+    display.println("INIT SENSORS...");
+    display.display();
+  }
+
+  pinMode(XSHUT_LEFT, OUTPUT);
+  pinMode(XSHUT_RIGHT, OUTPUT);
+  digitalWrite(XSHUT_LEFT, LOW);
+  digitalWrite(XSHUT_RIGHT, LOW);
+  delay(20);
+
+  digitalWrite(XSHUT_LEFT, HIGH);
+  delay(20);
+  if (lox_left.begin(0x30)) {
+    leftSensorOK = true;
+    Serial.println("Left VL53L0X Ready");
+  }
+
+  digitalWrite(XSHUT_RIGHT, HIGH);
+  delay(20);
+  if (lox_right.begin(0x31)) {
+    rightSensorOK = true;
+    Serial.println("Right VL53L0X Ready");
+  }
+
+  playBeep(1000, 100);
+  
+  WiFi.softAP(AP_SSID, AP_PASS);
+  server.on("/", handleRoot);
+  server.on("/cmd", handleCommand);
+  server.begin();
+
+  Serial.println(">>> SETUP COMPLETE <<<");
+}
+
+// --- MAIN LOOP ---
+void loop() {
+  unsigned long now = millis();
+
+  // Mode button toggle (0: Auto, 1: Manual+Safety, 2: Suicide, 3: Diagnostics)
+  if (digitalRead(BUTTON_PIN) == LOW && (now - lastBtnPress > 250)) {
+    lastBtnPress = now;
+    currentMode = (currentMode + 1) % 4;
+    
+    stopMotors();
+    currentManualCmd = "STOP";
+    dangerState = IDLE;
+    muteBuzzer();
+    playBeep(700, 50);
+  }
+
+  server.handleClient();
+
+  if (dangerState == IDLE) {
+    distLeft = readLeftSingle();
+    distRight = readRightSingle();
+  }
+
+  bool dangerL = leftSensorOK && (distLeft > THRESHOLD_LEFT_MM);
+  bool dangerR = rightSensorOK && (distRight > THRESHOLD_RIGHT_MM);
+
+  switch (currentMode) {
+    case 0: // 1. AUTONOMOUS FALL AVOIDANCE
+      runAutonomousSequence(dangerL, dangerR, now);
+      drawSpeedometerUI("MODE: AUTONOMOUS");
+      break;
+
+    case 1: // 2. MANUAL + SENSOR SAFETY OVERRIDE
+      if (dangerState != IDLE || dangerL || dangerR) {
+        runAutonomousSequence(dangerL, dangerR, now);
+      } else {
+        // SWAPPED LEFT AND RIGHT HERE
+        if (currentManualCmd == "FORWARD") forward(MANUAL_FWD_SPEED);
+        else if (currentManualCmd == "BACK") backward(MANUAL_BACK_SPEED);
+        else if (currentManualCmd == "LEFT") turnRightTank(MANUAL_TURN_SPEED);  // Swapped to turn Right Tank
+        else if (currentManualCmd == "RIGHT") turnLeftTank(MANUAL_TURN_SPEED); // Swapped to turn Left Tank
+        else stopMotors();
+      }
+      drawSpeedometerUI("MODE: MANUAL+SAFE");
+      break;
+
+    case 2: // 3. SUICIDE MODE (100% MANUAL, NO SENSORS)
+      dangerState = IDLE;
+      muteBuzzer();
+      // SWAPPED LEFT AND RIGHT HERE TOO
+      if (currentManualCmd == "FORWARD") forward(MANUAL_FWD_SPEED);
+      else if (currentManualCmd == "BACK") backward(MANUAL_BACK_SPEED);
+      else if (currentManualCmd == "LEFT") turnRightTank(MANUAL_TURN_SPEED);  // Swapped to turn Right Tank
+      else if (currentManualCmd == "RIGHT") turnLeftTank(MANUAL_TURN_SPEED); // Swapped to turn Left Tank
+      else stopMotors();
+      
+      drawSpeedometerUI("MODE: SUICIDE");
+      break;
+
+    case 3: // 4. DIAGNOSTICS
+      stopMotors();
+      muteBuzzer();
+      drawDiagnosticsUI();
+      break;
+  }
+
+  delay(10);
+}
+
+void runAutonomousSequence(bool dangerL, bool dangerR, unsigned long now) {
+  switch (dangerState) {
+    case IDLE:
+      if (dangerL || dangerR) {
+        dangerLeftDetected = dangerL;
+        dangerRightDetected = dangerR;
+        stopMotors();
+        playBeep(2000, 100);
+        dangerState = STOP1;
+        stateStartTime = now;
+      } else if (currentMode == 0) {
+        forward(AUTO_FWD_SPEED); 
+      }
+      break;
+
+    case STOP1:
+      stopMotors();
+      if (now - stateStartTime >= STOP_TIME) {
+        backward(AUTO_BACK_SPEED); 
+        dangerState = BACKWARD;
+        stateStartTime = now;
+      }
+      break;
+
+    case BACKWARD:
+      if (now - stateStartTime >= BACKWARD_TIME) {
+        stopMotors();
+        dangerState = STOP2;
+        stateStartTime = now;
+      }
+      break;
+
+    case STOP2:
+      stopMotors();
+      if (now - stateStartTime >= STOP_TIME) {
+        dangerState = TURN;
+        stateStartTime = now;
+      }
+      break;
+
+    case TURN:
+      unsigned long activeTurnDuration;
+      if (dangerLeftDetected && dangerRightDetected) {
+        turnRightTank(AUTO_TURN_SPEED); 
+        activeTurnDuration = TURN_TIME * 2; 
+      } else if (dangerRightDetected) {
+        turnRightTank(AUTO_TURN_SPEED);  
+        activeTurnDuration = TURN_TIME; 
+      } else {
+        turnLeftTank(AUTO_TURN_SPEED); 
+        activeTurnDuration = TURN_TIME; 
+      }
+
+      if (now - stateStartTime >= activeTurnDuration) {
+        stopMotors();
+        dangerState = STOP3;
+        stateStartTime = now;
+      }
+      break;
+
+    case STOP3:
+      stopMotors();
+      if (now - stateStartTime >= STOP_TIME) {
+        muteBuzzer();
+        dangerLeftDetected = false;
+        dangerRightDetected = false;
+        dangerState = IDLE;
+      }
+      break;
+  }
+}
