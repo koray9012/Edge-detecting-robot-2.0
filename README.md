@@ -96,4 +96,4 @@ Below is the visual schematic diagram for Edge Detector 2.0.
 | **GPIO 21** | OLED + Both Lasers | Shared I2C SDA |
 | **GPIO 22** | OLED + Both Lasers | Shared I2C SCL |
 | **GPIO 4** | Mode Pushbutton | Button Pin (other pin to GND) |
-| **GPIO 19** | Active Buzzer | Buzzer (+) Positive |
+| **GPIO 19** | Active Buzzer | Buzzer (+) Positive (other pin GND) |
