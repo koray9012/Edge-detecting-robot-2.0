@@ -109,3 +109,19 @@ Below is the visual schematic diagram for Edge Detector 2.0.
 
 The code can be found in repo: Edge Detecting Robot 2.0 Code
 
+## Bill of materials:
+
+| Item | Quantity | Price (USD) | Link |
+| :--- | :--- | :--- | :--- |
+| Esp32 38 pins | 1 | 8.68 USD | https://www.ardboard.com/index.php?route=product/product&product_id=413 |
+| L298N Motor Driver | 1 | 4.60 USD | https://elimex.bg/product/71197-kit-k2010-drayver-za-postoyannotokovi-motori |
+| 0.96 Oled Display | 1 | 5.60 USD | https://www.ardboard.com/index.php?route=product/product&product_id=264&search=oled |
+| VL53L0X laser sensors | 2 | 5.71 USD x2 = 11.42 USD | https://www.ardboard.com/index.php?route=product/product&product_id=405 |
+| Car Chasis | 1 | 20.93 USD | https://elimex.bg/product/84826-shasi-za-robot-4wd-s-4-motora-i-2-osnovi-kit-za-sglobqvane |
+| 18650 Battery | 2 | 5.77 USD x2 = 11.54 USD | https://elimex.bg/product/85664-akumulator-3.7v-3400mah-lc18650-lava |
+| Battery holder | 4 | 0.28 USD x4 = 1.12 USD | https://elimex.bg/product/77722-battery-holder-lc18650 |
+| 2S BMS | 1 | 1.52 USD | https://elimex.bg/product/77415-bsmpcm-kontroler-za-zaryada-i-razryada-na-li-ion-paket-2x18650-7-4v-8-4v3a |
+| Power Switch | 1 | 0.35 USD | https://elimex.bg/product/44024-switch-smrs101-1-black | 
+| DC Motors | 4 | 2.27 USD x4 = 9.08 USD | https://elimex.bg/product/79622-kit-k2178-postoyannotokov-motor-za-robo-platforma |
+| Button | 1 | 0.13 USD | https://elimex.bg/product/85908-mikrobuton-12-12-7.5-kan1211 |
+| Jumper Cables | ~30 | 2.86 USD + 2.27 USD = 5.13 USD | https://elimex.bg/product/75823-komplekt-provodnitsi-40-broya-s-konektori-mazhki-zhenski-30sm AND  https://elimex.bg/product/74894-komplekt-provodnitsi-40-broya-s-konektori-mazhki-mazhki-20sm |
