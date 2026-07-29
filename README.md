@@ -132,7 +132,7 @@ The code can be found in repo: Edge Detecting Robot 2.0 Code
 
 ## Credits: 
 
-## This porject uses:
+This porject uses:
 
 Kicad
 
