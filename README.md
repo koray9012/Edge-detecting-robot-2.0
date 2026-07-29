@@ -125,3 +125,5 @@ The code can be found in repo: Edge Detecting Robot 2.0 Code
 | DC Motors | 4 | 2.27 USD x4 = 9.08 USD | https://elimex.bg/product/79622-kit-k2178-postoyannotokov-motor-za-robo-platforma |
 | Button | 1 | 0.13 USD | https://elimex.bg/product/85908-mikrobuton-12-12-7.5-kan1211 |
 | Jumper Cables | ~30 | 2.86 USD + 2.27 USD = 5.13 USD | https://elimex.bg/product/75823-komplekt-provodnitsi-40-broya-s-konektori-mazhki-zhenski-30sm AND  https://elimex.bg/product/74894-komplekt-provodnitsi-40-broya-s-konektori-mazhki-mazhki-20sm |
+
+## Very important: The motors came with the chasis because they are a kit and also the cables arent exacly 30 bc i cut them up and soldered them 
