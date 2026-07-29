@@ -87,13 +87,13 @@ Below is the visual schematic diagram for Edge Detector 2.0.
 | ESP32 Pin | Component | Connected Pin / Note |
 | :--- | :--- | :--- |
 | **GPIO 14** | L298N Motor Driver | ENA+ENB (PWM Speed Control) |
-| **GPIO 27** | L298N Motor Driver | IN1 (Left Motor A) |
-| **GPIO 26** | L298N Motor Driver | IN2 (Left Motor B) |
-| **GPIO 25** | L298N Motor Driver | IN3 (Right Motor A) |
-| **GPIO 33** | L298N Motor Driver | IN4 (Right Motor B) |
-| **GPIO 17** | Left VL53L0X Laser | XSHUT (Address Config) |
-| **GPIO 18** | Right VL53L0X Laser | XSHUT (Address Config) |
+| **GPIO 27** | L298N Motor Driver | IN1 (Right Motor) |
+| **GPIO 26** | L298N Motor Driver | IN2 (Right Motor) |
+| **GPIO 25** | L298N Motor Driver | IN3 (Left Motor) |
+| **GPIO 33** | L298N Motor Driver | IN4 (Left Motor) |
+| **GPIO 17** | Left VL53L0X Laser | XSHUT  |
+| **GPIO 18** | Right VL53L0X Laser | XSHUT |
 | **GPIO 21** | OLED + Both Lasers | Shared I2C SDA |
 | **GPIO 22** | OLED + Both Lasers | Shared I2C SCL |
-| **GPIO 4** | Mode Pushbutton | Button Pin (Internal Pullup) |
+| **GPIO 4** | Mode Pushbutton | Button Pin (other pin to GND) |
 | **GPIO 19** | Active Buzzer | Buzzer (+) Positive |
