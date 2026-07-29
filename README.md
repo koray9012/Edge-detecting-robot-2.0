@@ -76,4 +76,24 @@ I wanted to take everything I learned from 1.0 and turn it into a legitimate, mu
 
 It started as a simple cliff-avoidance test, but turned into a full-on crash course in I2C multiplexing, web socket latency tuning, C++ state machines, and custom hardware integration and i plan to upgrade it constantly and one day to make it absolutely perfect.
 
-Wiring:
+### Wiring & Connections:
+
+Below is the visual schematic diagram for Edge Detector 2.0.
+
+![image](Екранна снимка 2026-07-29 005514.png)
+
+### Pinout Breakdown:
+
+| ESP32 Pin | Component | Connected Pin / Note |
+| :--- | :--- | :--- |
+| **GPIO 14** | L298N Motor Driver | ENA (PWM Speed Control) |
+| **GPIO 27** | L298N Motor Driver | IN1 (Left Motor A) |
+| **GPIO 26** | L298N Motor Driver | IN2 (Left Motor B) |
+| **GPIO 25** | L298N Motor Driver | IN3 (Right Motor A) |
+| **GPIO 33** | L298N Motor Driver | IN4 (Right Motor B) |
+| **GPIO 17** | Left VL53L0X Laser | XSHUT (Address Config) |
+| **GPIO 18** | Right VL53L0X Laser | XSHUT (Address Config) |
+| **GPIO 21** | OLED + Both Lasers | Shared I2C SDA |
+| **GPIO 22** | OLED + Both Lasers | Shared I2C SCL |
+| **GPIO 4** | Mode Pushbutton | Button Pin (Internal Pullup) |
+| **GPIO 19** | Active Buzzer | Buzzer (+) Positive |
