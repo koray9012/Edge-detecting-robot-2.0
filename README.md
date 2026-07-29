@@ -86,7 +86,7 @@ Below is the visual schematic diagram for Edge Detector 2.0.
 
 | ESP32 Pin | Component | Connected Pin / Note |
 | :--- | :--- | :--- |
-| **GPIO 14** | L298N Motor Driver | ENA (PWM Speed Control) |
+| **GPIO 14** | L298N Motor Driver | ENA+ENB (PWM Speed Control) |
 | **GPIO 27** | L298N Motor Driver | IN1 (Left Motor A) |
 | **GPIO 26** | L298N Motor Driver | IN2 (Left Motor B) |
 | **GPIO 25** | L298N Motor Driver | IN3 (Right Motor A) |
