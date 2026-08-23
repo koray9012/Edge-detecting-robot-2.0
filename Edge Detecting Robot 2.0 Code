@@ -1,4 +1,5 @@
 #include <WiFi.h>
+#include <esp_now.h>
 #include <WebServer.h>
 #include <Wire.h>
 #include <Adafruit_VL53L0X.h>
@@ -6,12 +7,32 @@
 #include <Adafruit_SSD1306.h>
 
 // ==========================================
-//  WI-FI ACCESS POINT CREDENTIALS
+// 📶 WI-FI ACCESS POINT CREDENTIALS
 // ==========================================
 const char* AP_SSID = "Robot-Control";
 const char* AP_PASS = "12345678"; 
 
+// Identity Name for Discovery
+const char* ROBOT_NAME = "edge detecting robot 2.0";
+
 WebServer server(80);
+
+// --- ESP-NOW SIMPLE COMMAND DATA ---
+struct CommandMessage {
+  char cmd[16];
+};
+
+struct IdentityMessage {
+  char name[32];
+};
+
+CommandMessage incomingCmd;
+IdentityMessage robotIdentity;
+
+unsigned long lastEspNowPacketTime = 0;
+String espNowManualCmd = "STOP";
+uint8_t controllerMac[6];
+bool controllerKnown = false;
 
 // --- MOTOR DIRECTION FIX ---
 #define INVERT_LEFT_MOTOR   false   
@@ -38,12 +59,10 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 #define THRESHOLD_LEFT_MM  220 
 #define THRESHOLD_RIGHT_MM 160 
 
-// 1. ORIGINAL AUTONOMOUS SPEEDS
 #define AUTO_FWD_SPEED    170  
 #define AUTO_BACK_SPEED   180  
 #define AUTO_TURN_SPEED   240  
 
-// 2. MANUAL PHONE SPEEDS
 #define MANUAL_FWD_SPEED  190  
 #define MANUAL_BACK_SPEED 200  
 #define MANUAL_TURN_SPEED 255  
@@ -51,8 +70,8 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 #define MAX_KMH           1.8 
 
 #define STOP_TIME         1500  
-#define BACKWARD_TIME     600  
-#define TURN_TIME         800  
+#define BACKWARD_TIME     600   
+#define TURN_TIME         800   
 
 // --- OBJECTS & GLOBALS ---
 Adafruit_VL53L0X lox_left = Adafruit_VL53L0X();
@@ -116,6 +135,35 @@ const char HTML_PAGE[] PROGMEM = R"rawliteral(
 </body>
 </html>
 )rawliteral";
+
+// --- ESP-NOW RECEIVE & IDENTITY RESPONSE ---
+void OnDataRecv(const esp_now_recv_info_t *recv_info, const uint8_t *incomingData, int len) {
+  if (len == sizeof(CommandMessage)) {
+    memcpy(&incomingCmd, incomingData, sizeof(incomingCmd));
+    espNowManualCmd = String(incomingCmd.cmd);
+    lastEspNowPacketTime = millis();
+
+    // Register controller peer if not registered so we can reply back with robot name
+    if (!controllerKnown && recv_info->src_addr != NULL) {
+      memcpy(controllerMac, recv_info->src_addr, 6);
+      
+      esp_now_peer_info_t peerInfo = {};
+      memcpy(peerInfo.peer_addr, controllerMac, 6);
+      peerInfo.channel = 0;
+      peerInfo.encrypt = false;
+      
+      if (esp_now_add_peer(&peerInfo) == ESP_OK) {
+        controllerKnown = true;
+      }
+    }
+
+    // Send back identity name payload to controller
+    if (controllerKnown) {
+      strncpy(robotIdentity.name, ROBOT_NAME, sizeof(robotIdentity.name));
+      esp_now_send(controllerMac, (uint8_t *)&robotIdentity, sizeof(robotIdentity));
+    }
+  }
+}
 
 // --- MOTOR FUNCTIONS ---
 void setupMotors() {
@@ -235,10 +283,13 @@ void drawDiagnosticsUI() {
   display.print("WiFi AP: ");
   display.println(WiFi.softAPgetStationNum() > 0 ? "CONNECTED" : "WAITING");
 
+  display.setCursor(0, 50);
+  display.print("ESP-NOW: ");
+  display.println((millis() - lastEspNowPacketTime < 1000) ? "LINK OK" : "NO LINK");
+
   display.display();
 }
 
-// --- SENSOR READING HELPERS ---
 int readLeftSingle() {
   if (!leftSensorOK) return 0;
   VL53L0X_RangingMeasurementData_t measure;
@@ -255,7 +306,6 @@ int readRightSingle() {
 
 void runAutonomousSequence(bool dangerL, bool dangerR, unsigned long now);
 
-// --- WEB SERVER HANDLERS ---
 void handleRoot() {
   server.send(200, "text/html", HTML_PAGE);
 }
@@ -277,7 +327,6 @@ void handleCommand() {
   server.send(200, "text/plain", "OK");
 }
 
-// --- SETUP ---
 void setup() {
   Serial.begin(115200);
   delay(500);
@@ -294,7 +343,6 @@ void setup() {
 
   if (display.begin(SSD1306_SWITCHCAPVCC, 0x3C) || display.begin(SSD1306_SWITCHCAPVCC, 0x3D)) {
     screenOK = true;
-    Serial.println("OLED Display Initialized!");
     display.clearDisplay();
     display.setTextSize(1);
     display.setTextColor(SSD1306_WHITE);
@@ -311,21 +359,22 @@ void setup() {
 
   digitalWrite(XSHUT_LEFT, HIGH);
   delay(20);
-  if (lox_left.begin(0x30)) {
-    leftSensorOK = true;
-    Serial.println("Left VL53L0X Ready");
-  }
+  if (lox_left.begin(0x30)) leftSensorOK = true;
 
   digitalWrite(XSHUT_RIGHT, HIGH);
   delay(20);
-  if (lox_right.begin(0x31)) {
-    rightSensorOK = true;
-    Serial.println("Right VL53L0X Ready");
-  }
+  if (lox_right.begin(0x31)) rightSensorOK = true;
 
   playBeep(1000, 100);
   
+  WiFi.mode(WIFI_AP_STA);
   WiFi.softAP(AP_SSID, AP_PASS);
+
+  if (esp_now_init() == ESP_OK) {
+    esp_now_register_recv_cb(OnDataRecv);
+    Serial.println("ESP-NOW Ready!");
+  }
+
   server.on("/", handleRoot);
   server.on("/cmd", handleCommand);
   server.begin();
@@ -333,11 +382,9 @@ void setup() {
   Serial.println(">>> SETUP COMPLETE <<<");
 }
 
-// --- MAIN LOOP ---
 void loop() {
   unsigned long now = millis();
 
-  // Mode button toggle (0: Auto, 1: Manual+Safety, 2: Suicide, 3: Diagnostics)
   if (digitalRead(BUTTON_PIN) == LOW && (now - lastBtnPress > 250)) {
     lastBtnPress = now;
     currentMode = (currentMode + 1) % 4;
@@ -359,40 +406,53 @@ void loop() {
   bool dangerL = leftSensorOK && (distLeft > THRESHOLD_LEFT_MM);
   bool dangerR = rightSensorOK && (distRight > THRESHOLD_RIGHT_MM);
 
+  String activeCmd = "STOP";
+  if (currentManualCmd != "STOP") {
+    activeCmd = currentManualCmd;
+  } else if (now - lastEspNowPacketTime < 500) {
+    activeCmd = espNowManualCmd;
+  }
+
   switch (currentMode) {
-    case 0: // 1. AUTONOMOUS FALL AVOIDANCE
+    case 0:
       runAutonomousSequence(dangerL, dangerR, now);
       drawSpeedometerUI("MODE: AUTONOMOUS");
       break;
 
-    case 1: // 2. MANUAL + SENSOR SAFETY OVERRIDE
+    case 1:
       if (dangerState != IDLE || dangerL || dangerR) {
         runAutonomousSequence(dangerL, dangerR, now);
       } else {
-        // SWAPPED LEFT AND RIGHT HERE
-        if (currentManualCmd == "FORWARD") forward(MANUAL_FWD_SPEED);
-        else if (currentManualCmd == "BACK") backward(MANUAL_BACK_SPEED);
-        else if (currentManualCmd == "LEFT") turnRightTank(MANUAL_TURN_SPEED);  // Swapped to turn Right Tank
-        else if (currentManualCmd == "RIGHT") turnLeftTank(MANUAL_TURN_SPEED); // Swapped to turn Left Tank
+        if (activeCmd == "FORWARD") forward(MANUAL_FWD_SPEED);
+        else if (activeCmd == "BACK") backward(MANUAL_BACK_SPEED);
+        else if (activeCmd == "LEFT") turnRightTank(MANUAL_TURN_SPEED);
+        else if (activeCmd == "RIGHT") turnLeftTank(MANUAL_TURN_SPEED);
+        else if (activeCmd == "FORWARD_LEFT") turnRightTank(MANUAL_TURN_SPEED);
+        else if (activeCmd == "FORWARD_RIGHT") turnLeftTank(MANUAL_TURN_SPEED);
+        else if (activeCmd == "BACK_LEFT") turnRightTank(MANUAL_TURN_SPEED);
+        else if (activeCmd == "BACK_RIGHT") turnLeftTank(MANUAL_TURN_SPEED);
         else stopMotors();
       }
       drawSpeedometerUI("MODE: MANUAL+SAFE");
       break;
 
-    case 2: // 3. SUICIDE MODE (100% MANUAL, NO SENSORS)
+    case 2:
       dangerState = IDLE;
       muteBuzzer();
-      // SWAPPED LEFT AND RIGHT HERE TOO
-      if (currentManualCmd == "FORWARD") forward(MANUAL_FWD_SPEED);
-      else if (currentManualCmd == "BACK") backward(MANUAL_BACK_SPEED);
-      else if (currentManualCmd == "LEFT") turnRightTank(MANUAL_TURN_SPEED);  // Swapped to turn Right Tank
-      else if (currentManualCmd == "RIGHT") turnLeftTank(MANUAL_TURN_SPEED); // Swapped to turn Left Tank
+      if (activeCmd == "FORWARD") forward(MANUAL_FWD_SPEED);
+      else if (activeCmd == "BACK") backward(MANUAL_BACK_SPEED);
+      else if (activeCmd == "LEFT") turnRightTank(MANUAL_TURN_SPEED);
+      else if (activeCmd == "RIGHT") turnLeftTank(MANUAL_TURN_SPEED);
+      else if (activeCmd == "FORWARD_LEFT") turnRightTank(MANUAL_TURN_SPEED);
+      else if (activeCmd == "FORWARD_RIGHT") turnLeftTank(MANUAL_TURN_SPEED);
+      else if (activeCmd == "BACK_LEFT") turnRightTank(MANUAL_TURN_SPEED);
+      else if (activeCmd == "BACK_RIGHT") turnLeftTank(MANUAL_TURN_SPEED);
       else stopMotors();
       
       drawSpeedometerUI("MODE: SUICIDE");
       break;
 
-    case 3: // 4. DIAGNOSTICS
+    case 3:
       stopMotors();
       muteBuzzer();
       drawDiagnosticsUI();
