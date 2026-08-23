@@ -16,6 +16,10 @@ You can let it drive around completely on its own, or take full control over Wi-
 
   • Hosts its own ESP32 Wi-Fi Access Point running a custom touch web dashboard so you can drive it smoothly from your phone without the controls lagging or dropping out when you hold a button down.
 
+Wireless control through the mouse-glove project or through the universal Controller:
+
+  • Uses ESP-NOW to connect wirelessly to the rover and control it with almost no latency. 
+ 
  4 Dynamic Modes (One-Button Toggle):
 
   • Autonomous Mode: Fully self-driving fall-avoidance routine that automatically stops, backs up, tank-turns, and carries on whenever it spots a drop-off.
