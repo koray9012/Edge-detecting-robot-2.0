@@ -17,22 +17,34 @@ const char* ROBOT_NAME = "edge detecting robot 2.0";
 
 WebServer server(80);
 
-// --- ESP-NOW SIMPLE COMMAND DATA ---
-struct CommandMessage {
-  char cmd[16];
-};
+// --- ESP-NOW GLOVE TRANSMITTER DATA STRUCT ---
+typedef struct struct_message {
+  int speedLeft;     // -255 to 255
+  int speedRight;    // -255 to 255
+  bool lmb;          
+  bool rmb;
+  bool mmb;
+  bool isFrozen;     // Motion Pause Flag
+} struct_message;
 
+struct_message gloveData;
+
+// Command structure for identity replies
 struct IdentityMessage {
   char name[32];
 };
 
-CommandMessage incomingCmd;
 IdentityMessage robotIdentity;
 
 unsigned long lastEspNowPacketTime = 0;
 String espNowManualCmd = "STOP";
 uint8_t controllerMac[6];
 bool controllerKnown = false;
+
+// Direct speed overrides from glove analog stick/accel
+int gloveLeftSpeed = 0;
+int gloveRightSpeed = 0;
+bool gloveIsFrozen = false;
 
 // --- MOTOR DIRECTION FIX ---
 #define INVERT_LEFT_MOTOR   false   
@@ -136,12 +148,30 @@ const char HTML_PAGE[] PROGMEM = R"rawliteral(
 </html>
 )rawliteral";
 
-// --- ESP-NOW RECEIVE & IDENTITY RESPONSE ---
+// --- ESP-NOW RECEIVE & GLOVE DISCOVERY ---
 void OnDataRecv(const esp_now_recv_info_t *recv_info, const uint8_t *incomingData, int len) {
-  if (len == sizeof(CommandMessage)) {
-    memcpy(&incomingCmd, incomingData, sizeof(incomingCmd));
-    espNowManualCmd = String(incomingCmd.cmd);
+  if (len == sizeof(struct_message)) {
+    memcpy(&gloveData, incomingData, sizeof(gloveData));
+    
+    gloveLeftSpeed = gloveData.speedLeft;
+    gloveRightSpeed = gloveData.speedRight;
+    gloveIsFrozen = gloveData.isFrozen;
     lastEspNowPacketTime = millis();
+
+    // Map motor speeds into direction command for existing state machine
+    if (gloveIsFrozen) {
+      espNowManualCmd = "STOP";
+    } else if (gloveLeftSpeed > 50 && gloveRightSpeed > 50) {
+      espNowManualCmd = "FORWARD";
+    } else if (gloveLeftSpeed < -50 && gloveRightSpeed < -50) {
+      espNowManualCmd = "BACK";
+    } else if (gloveLeftSpeed < -20 && gloveRightSpeed > 20) {
+      espNowManualCmd = "LEFT";
+    } else if (gloveLeftSpeed > 20 && gloveRightSpeed < -20) {
+      espNowManualCmd = "RIGHT";
+    } else {
+      espNowManualCmd = "STOP";
+    }
 
     // Register controller peer if not registered so we can reply back with robot name
     if (!controllerKnown && recv_info->src_addr != NULL) {
@@ -157,7 +187,7 @@ void OnDataRecv(const esp_now_recv_info_t *recv_info, const uint8_t *incomingDat
       }
     }
 
-    // Send back identity name payload to controller
+    // Send back identity name payload to controller glove
     if (controllerKnown) {
       strncpy(robotIdentity.name, ROBOT_NAME, sizeof(robotIdentity.name));
       esp_now_send(controllerMac, (uint8_t *)&robotIdentity, sizeof(robotIdentity));
