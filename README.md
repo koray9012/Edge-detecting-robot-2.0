@@ -142,4 +142,4 @@ Kicad
 
 Hack Club Macondo 
 
-Btw thank you for the pinecil Hack CLub :)
+Btw thank you for the pinecil Hack Club :)
