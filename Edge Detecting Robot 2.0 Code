@@ -7,7 +7,7 @@
 #include <Adafruit_SSD1306.h>
 
 // ==========================================
-// 📶 WI-FI ACCESS POINT CREDENTIALS
+//  WI-FI ACCESS POINT CREDENTIALS
 // ==========================================
 const char* AP_SSID = "Robot-Control";
 const char* AP_PASS = "12345678"; 
