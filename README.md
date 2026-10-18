@@ -136,10 +136,10 @@ The code can be found in repo: Edge Detecting Robot 2.0 Code
 
 ## Credits: 
 
-This porject uses:
+This project uses:
 
 Kicad
 
-Hack Club Macondo 
+Hack Club Forged 
 
 Btw thank you for the pinecil Hack Club :)
